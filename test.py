@@ -109,6 +109,20 @@ class Commands(metaclass=CommandsMeta):
         return getattr(type(self), name)
 
 
+class TokenInitializationException(Exception):
+    """ Thrown when a token is unable to be initialized """
+    pass
+
+class HostTokenException(TokenInitializationException):
+    pass
+
+class RealTimeResponseTokenException(TokenInitializationException):
+    pass
+
+class RealTimeResponseAdminTokenException(TokenInitializationException):
+    pass
+
+
 class FalconAccess:
     ID_KEY="FALCON_CLIENT_ID"
     SECRET_KEY="FALCON_CLIENT_SECRET"
@@ -145,6 +159,10 @@ class FalconAccess:
 class FalconData:
     def __init__(self, falcon_access):
         self._hosts = falcon_access.hosts
+
+        if self._hosts.token_status != 201:
+            raise HostTokenException("Unable to initialize token")
+
         print("Initiated falcon data")
 
     def _filter_by_serial_number(self, serial_number):
@@ -176,6 +194,10 @@ class FalconData:
 class FalconDevice:
     def __init__(self, falcon_access):
         self._rtr = falcon_access.real_time_response
+
+        if self._rtr.token_status != 201:
+            raise HostTokenException("Unable to initialize token")
+
         print("Initiated falcon device")
 
     def _resources(self, data):
@@ -198,6 +220,10 @@ class FalconDevice:
 class FalconAdmin:
     def __init__(self, falcon_access):
         self._rtra = falcon_access.real_time_response_admin
+
+        if self._rtra.token_status != 201:
+            raise HostTokenException("Unable to initialize token")
+
         print("Initiated falcon admin")
 
     def _resources(self, data):
