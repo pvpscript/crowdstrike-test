@@ -36,10 +36,12 @@ class Report:
         self._report_data = {}
 
     def __setitem__(self, key, value):
+        encoded_val = value.encode('unicode_escape')
+
         if self._report_data.get(key) is None:
-            self._report_data[key] = [value]
+            self._report_data[key] = [encoded_val]
         else:
-            self._report_data[key].append(value)
+            self._report_data[key].append(encoded_val)
 
     def _csv_output_file(self):
         name = f"report_{datetime.now()}.csv"
@@ -90,7 +92,7 @@ class CommandsMeta(type):
                                   f"sudo scutil --set HostName '{new_name}'```")
     WINDOWS = lambda self, new_name: ("runscript -Raw=``` "
                                       f"Rename-Computer -NewName {new_name} -Force ```")
-    LINUX = lambda self, new_name: f"runscript -Raw=``` hostname {new_name} ```"
+    LINUX = lambda self, new_name: f"runscript -Raw=``` hostname {new_name}; hostname ```"
 
     def __getitem__(self, name):
         lower_name = name.lower()
@@ -311,11 +313,11 @@ def main():
                 except Exception as e:
                     report['stdout'] = ""
                     report['stderr'] = ""
-                    report['status'] = e
+                    report['status'] = str(e)
                 else:
                     report['status'] = "Success!"
         except Exception as e:
             print(f"An error occurred: {e}")
-            report['status'] = e
+            report['status'] = str(e)
 
     report.export_csv()
