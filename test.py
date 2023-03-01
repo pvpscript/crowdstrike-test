@@ -86,23 +86,35 @@ class Report:
     #    df.to_csv(name)
 
 class CommandsMeta(type):
-    MAC = lambda self, new_name: ("runscript -Raw=``` "
-                                  f"sudo scutil --set ComputerName '{new_name}' && "
-                                  f"sudo scutil --set LocalHostName '{new_name}' && "
-                                  f"sudo scutil --set HostName '{new_name}'```")
-    WINDOWS = lambda self, new_name: ("runscript -Raw=``` "
-                                      f"Rename-Computer -NewName {new_name} -Force ```")
-    LINUX = lambda self, new_name: f"runscript -Raw=``` hostname {new_name}; hostname ```"
+    def _run_script(self, script):
+        return f"runscript -Raw=```{script}```"
+
+    def _mac(self, new_name):
+        new_name_command = (f"sudo scutil --set ComputerName '{new_name}' && "
+                            f"sudo scutil --set LocalHostName '{new_name}' && "
+                            f"sudo scutil --set HostName '{new_name}'")
+
+        return self._run_script(new_name_command)
+
+    def _windows(self, new_name):
+        new_name_command = f"Rename-Computer -NewName {new_name} -Force"
+
+        return self._run_script(new_name_command)
+
+    def _linux(self, new_name):
+        new_name_command = f"hostname {new_name}; hostname"
+
+        return self._run_script(new_name_command)
 
     def __getitem__(self, name):
         lower_name = name.lower()
         match lower_name:
             case 'mac':
-                return self.MAC
+                return self._mac
             case 'windows':
-                return self.WINDOWS
+                return self._windows
             case 'linux':
-                return self.LINUX
+                return self._linux
             case _:
                 raise Exception(f"Unknown platorm '{name}'")
 
