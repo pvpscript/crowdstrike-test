@@ -5,8 +5,6 @@ import csv
 import falconpy
 import json
 
-import pandas as pd
-
 from datetime import datetime
 
 pretty = lambda d: print(json.dumps(d, indent=4))
@@ -79,11 +77,6 @@ class Report:
 
         csv_writer.writerow(keys)
         csv_writer.writerows(data)
-
-    #def export_csv(self):
-    #    name = f"report_{datetime.now()}.csv"
-    #    df = pd.DataFrame(self._report_data)
-    #    df.to_csv(name)
 
 class CommandsMeta(type):
     def _run_script(self, script):
