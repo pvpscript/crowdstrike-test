@@ -224,6 +224,13 @@ class FalconDevice:
 
         return sessions
 
+class FileUploadException(Exception):
+    """ """
+    pass
+class FileDeploymentTimeoutException(Exception):
+    """ """
+    pass
+
 class FalconAdmin:
     def __init__(self, falcon_access):
         self._rtra = falcon_access.real_time_response_admin
@@ -242,6 +249,12 @@ class FalconAdmin:
         )
 
         return self._resources(cmd_check)['complete'] == False
+
+    def _build_file_payload(self, name, type_):
+        with open(name, 'rb') as file:
+            data = file.read()
+
+            return [('file', (name, data, type_))]
 
     def run_command(self, session_id, command, await_complete=True, tries=5):
         cmd = self._rtra.RTR_ExecuteAdminCommand(command_string=command,
@@ -270,6 +283,37 @@ class FalconAdmin:
 
         return self._resources(cmd_status)
 
+    def upload_file(self, name, desc, type_):
+        payload = self._build_file_payload(name, type_)
+        upload_result = self._rtra.create_put_files(name=name,
+                                                    description=desc,
+                                                    files=payload)
+
+        if upload_result['status_code'] != 200 and upload_result['status_code'] != 409:
+            raise FileUploadException(f"Unable to upload file \"{name}\"")
+
+    def deploy_file(self, name, session_id, await_complete=True, tries=60):
+        res = self._rtra.RTR_ExecuteAdminCommand(base_command="put",
+                                                 command_string=f"put {name}",
+                                                 session_id=session_id,
+                                                 persist=True)
+
+        if res['status_code'] != 201:
+            raise FileDeploymentException("Unable to deploy file \"{name}\"")
+
+        resources = self._resources(res)
+
+        if await_complete:
+            cloud_request_id = resources['cloud_request_id']
+            curr_try = 0
+            while (self._check_command_not_completed(cloud_request_id) and
+                   curr_try < tries):
+                time.sleep(1)
+                curr_try += 1
+
+        if curr_try == tries:
+            raise FileDeploymentTimeoutException("Deploy command timed out for file \"{name}\" on session {session_id}")
+
 def read_csv(file_name):
     in_file = open(file_name)
     return csv.DictReader(in_file)
@@ -293,9 +337,9 @@ def main():
     for data in csv_data:
         try:
             devices = falcon_data.devices(data['serial_number'])
-            print("fetched devices")
+            print(f"fetched devices: {devices}")
             details = falcon_data.details(devices)
-            print("fetched details")
+            print(f"fetched details: {details}")
             for detail in details:
                 report['new_name'] = data['new_name']
                 report['owner'] = data['owner']
@@ -308,13 +352,23 @@ def main():
                     sessions = falcon_device.init_sessions([detail['device_id']])
                     print("opened sessions")
 
-                    for session in sessions:
-                        command = Commands[platform(detail)](data['new_name'])
-                        resources = falcon_admin.run_command(sessid(session), command)
-                        command_status = falcon_admin.get_command_status(resources['cloud_request_id'])
+#                    for session in sessions:
+#                        command = Commands[platform(detail)](data['new_name'])
+#                        resources = falcon_admin.run_command(sessid(session), command)
+#                        command_status = falcon_admin.get_command_status(resources['cloud_request_id'])
+#
+#                        report['stdout'] = command_status['stdout']
+#                        report['stderr'] = command_status['stderr']
 
-                        report['stdout'] = command_status['stdout']
-                        report['stderr'] = command_status['stderr']
+                    name = "file_test_falcon_stuff.txt"
+                    for session in sessions:
+                        falcon_admin.upload_file(
+                                name,
+                                "This is a file that tests the falcon script for uploading files",
+                                "text/plain")
+
+                        falcon_admin.deploy_file(name, sessid(session))
+
                 except Exception as e:
                     report['stdout'] = ""
                     report['stderr'] = ""
